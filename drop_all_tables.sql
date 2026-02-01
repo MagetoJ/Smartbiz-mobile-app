@@ -1,0 +1,12 @@
+-- Drop all tables to clear old schema
+DROP TABLE IF EXISTS stock_movements CASCADE;
+DROP TABLE IF EXISTS sale_items CASCADE;
+DROP TABLE IF EXISTS sales CASCADE;
+DROP TABLE IF EXISTS products CASCADE;
+DROP TABLE IF EXISTS tenant_users CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS tenants CASCADE;
+
+-- Drop all enums
+DROP TYPE IF EXISTS stockmovementtype CASCADE;
+DROP TYPE IF EXISTS orderstatus CASCADE;

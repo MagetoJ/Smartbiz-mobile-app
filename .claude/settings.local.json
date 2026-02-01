@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(source venv/bin/activate)",
+      "Bash(python:*)",
+      "Bash(python reset_and_seed.py:*)",
+      "Bash(tree:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(lsof:*)",
+      "Bash(PGPASSWORD=chef_user psql:*)",
+      "Bash(xargs kill:*)"
+    ]
+  }
+}

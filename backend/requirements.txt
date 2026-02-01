@@ -1,0 +1,31 @@
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+sqlalchemy==2.0.36
+asyncpg==0.30.0
+python-jose[cryptography]==3.3.0
+passlib==1.7.4
+bcrypt==4.0.1
+python-multipart==0.0.17
+pydantic==2.10.3
+pydantic-settings==2.6.1
+python-dateutil==2.9.0.post0
+email-validator==2.3.0
+
+# Email functionality (Postmark HTTP API)
+httpx==0.28.0
+
+# PDF generation
+weasyprint==62.3
+
+# Image upload and storage
+aioboto3==12.1.0
+Pillow==10.1.0
+
+# AI classification (LiteLLM - supports multiple providers)
+litellm==1.52.16
+
+# Database connection retry logic (for Cloud Run)
+tenacity==9.0.0
+
+# Background task scheduling
+apscheduler==3.10.4

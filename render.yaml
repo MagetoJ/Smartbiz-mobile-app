@@ -1,0 +1,246 @@
+# Render Deployment Configuration
+# Defines backend API, frontend static site, and PostgreSQL database
+
+services:
+  # ==========================================
+  # Backend API Service (FastAPI)
+  # ==========================================
+  - type: web
+    name: statbricks-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: starter  # $7/month (can upgrade to standard $25/month for auto-scaling)
+    region: singapore  # Change to your preferred region
+    
+    # Auto-scaling configuration (requires standard plan or higher)
+    # autoDeploy: true
+    # scaling:
+    #   minInstances: 1
+    #   maxInstances: 10
+    #   targetMemoryPercent: 80
+    #   targetCPUPercent: 80
+    
+    healthCheckPath: /health
+    
+    envVars:
+      # ===== DATABASE =====
+      - key: DATABASE_URL
+        fromDatabase:
+          name: statbricks-db
+          property: connectionString
+      
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: statbricks-db
+          property: password
+      
+      # ===== SECURITY =====
+      - key: SECRET_KEY
+        generateValue: true
+      
+      - key: ALGORITHM
+        value: HS256
+      
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 480
+      
+      # ===== CORS =====
+      # IMPORTANT: List all allowed frontend origins (comma-separated, no spaces)
+      # The backend will automatically strip whitespace, but it's best practice to avoid it
+      - key: CORS_ORIGINS
+        value: https://pos.statbricks.com,https://www.pos.statbricks.com,https://statbricks-frontend.onrender.com
+        # Note: Custom domains (pos.statbricks.com) + Render default domain for fallback
+        # Add new origins as needed when deploying to additional domains
+      
+      # ===== TIMEZONE =====
+      - key: TZ
+        value: UTC
+
+      # ===== APPLICATION =====
+      - key: APP_NAME
+        value: StatBricks
+      
+      - key: DEBUG
+        value: false
+      
+      - key: SEED_DEMO_DATA
+        value: false
+      
+      # ===== EMAIL (POSTMARK) =====
+      - key: POSTMARK_ENABLED
+        value: true
+      
+      - key: POSTMARK_SERVER_TOKEN
+        sync: false  # Set in Render dashboard
+      
+      - key: POSTMARK_FROM_EMAIL
+        value: noreply@statbricks.com
+      
+      - key: POSTMARK_FROM_NAME
+        value: StatBricks Team
+      
+      - key: EMAIL_TEST_MODE
+        value: false
+      
+      # ===== R2 STORAGE (CLOUDFLARE) =====
+      - key: R2_ENDPOINT_URL
+        sync: false  # Format: https://<account-id>.r2.cloudflarestorage.com
+      
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      
+      - key: R2_BUCKET_NAME
+        sync: false
+      
+      - key: R2_PUBLIC_URL
+        sync: false  # Format: https://your-bucket.r2.dev
+      
+      # ===== AI CLASSIFICATION =====
+      - key: ANTHROPIC_API_KEY
+        sync: false  # SENSITIVE: Set in Render dashboard
+      
+      - key: AI_MODEL
+        value: anthropic/claude-haiku-4-5-20251001
+      
+      - key: AI_MAX_TOKENS
+        value: 300
+      
+      - key: AI_CLASSIFICATION_ENABLED
+        value: true
+      
+      - key: OPENAI_API_KEY
+        sync: false  # SENSITIVE: Optional fallback provider (set in Render dashboard)
+      
+      # ===== PAYSTACK PAYMENT =====
+      #
+      # IMPORTANT: Get keys from https://dashboard.paystack.co/#/settings/developers
+      #
+      # Key Format:
+      #   - Secret Key: sk_test_xxx (test) or sk_live_xxx (production)
+      #   - Public Key: pk_test_xxx (test) or pk_live_xxx (production)
+      #
+      # Common Issues:
+      #   1. Extra whitespace - Copy keys carefully, no leading/trailing spaces
+      #   2. Wrong key type - Secret key starts with "sk_", public with "pk_"
+      #   3. Mode mismatch - Both keys must be same mode (test or live)
+      #   4. Expired/regenerated keys - If keys were regenerated in Paystack, update here
+      #
+      # Troubleshooting:
+      #   - Check startup logs for "Paystack Payment Configuration Status"
+      #   - Use GET /api/subscription/config-status endpoint (admin only)
+      #
+      - key: PAYSTACK_SECRET_KEY
+        sync: false  # SENSITIVE: Set in Render dashboard (sk_test_xxx or sk_live_xxx)
+
+      - key: PAYSTACK_PUBLIC_KEY
+        sync: false  # SENSITIVE: Set in Render dashboard (pk_test_xxx or pk_live_xxx)
+
+      - key: PAYSTACK_WEBHOOK_SECRET
+        sync: false  # Optional: For webhook signature verification
+      
+      # ===== SUBSCRIPTION SETTINGS =====
+      - key: TRIAL_PERIOD_DAYS
+        value: 14
+      
+      - key: GRACE_PERIOD_DAYS
+        value: 3
+      
+      # ===== BOOTSTRAP SUPER ADMIN =====
+      - key: BOOTSTRAP_SUPER_ADMIN_EMAIL
+        sync: false  # Set in Render dashboard
+      
+      - key: BOOTSTRAP_SUPER_ADMIN_PASSWORD_HASH
+        sync: false  # SENSITIVE: Pre-hashed bcrypt password (set in Render dashboard)
+      
+      - key: BOOTSTRAP_SUPER_ADMIN_FULL_NAME
+        value: Platform Administrator
+      
+      # ===== FRONTEND URL =====
+      - key: FRONTEND_URL
+        value: https://statbricks-frontend.onrender.com
+        # Update with your actual frontend URL (custom domain or Render URL)
+
+  # ==========================================
+  # Frontend Static Site (React + Nginx)
+  # ==========================================
+  - type: web
+    name: statbricks-frontend
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    dockerCommand: nginx -g 'daemon off;'
+    plan: starter  # $7/month for static sites
+    region: singapore  # Should match backend region for lower latency
+    
+    healthCheckPath: /health
+    
+    # Docker build arguments (injected at build time)
+    dockerBuildArgs:
+      - key: VITE_API_URL
+        value: https://statbricks-api.onrender.com
+      - key: VITE_R2_PUBLIC_URL
+        sync: false  # Set in Render dashboard
+    
+    envVars:
+      # ===== BACKEND API (also needed for runtime scripts) =====
+      - key: VITE_API_URL
+        value: https://statbricks-api.onrender.com
+        # Update with your actual backend URL after first deploy
+      
+      # ===== R2 STORAGE (also needed for runtime scripts) =====
+      - key: VITE_R2_PUBLIC_URL
+        sync: false  # Format: https://your-bucket.r2.dev (set in Render dashboard)
+
+# ==========================================
+# Database (PostgreSQL)
+# ==========================================
+databases:
+  - name: statbricks-db
+    databaseName: statbricks
+    user: statbricks
+    plan: free  # Free tier - upgrade to 'basic' ($7/month, 1GB RAM) or 'standard' ($20/month, 4GB RAM) for production
+    region: singapore
+    # postgresVersion: "16"  # Uncomment to specify version
+
+# ==========================================
+# Deployment Notes
+# ==========================================
+# 
+# 1. First Deploy:
+#    - Push this file to your GitHub repo
+#    - Connect repo to Render
+#    - Render will auto-create all services
+#
+# 2. After First Deploy:
+#    - Update CORS_ORIGINS in backend to include your frontend URL
+#    - Update VITE_API_URL in frontend to include your backend URL
+#
+# 3. Custom Domains:
+#    - Backend: api.yourdomain.com
+#    - Frontend: yourdomain.com or www.yourdomain.com
+#    - Update env vars after adding custom domains
+#
+# 4. Environment Variables:
+#    - Set sensitive variables in Render dashboard
+#    - Don't commit secrets to git
+#
+# 5. Scaling:
+#    - Upgrade to Standard plan for auto-scaling
+#    - Backend scales based on CPU/Memory
+#    - Frontend is static (no scaling needed)
+#
+# 6. Cost Estimate:
+#    - Backend Starter: $7/month
+#    - Frontend Starter: $7/month  
+#    - Database Starter: $7/month
+#    - Total: $21/month
+#
+#    For production (recommended):
+#    - Backend Standard: $25/month (with auto-scaling)
+#    - Frontend Starter: $7/month
+#    - Database Standard: $20/month
+#    - Total: $52/month
