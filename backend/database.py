@@ -1,9 +1,11 @@
+import os
+import logging
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 from sqlalchemy import text
 from config import settings
 from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type
-import logging
+
 try:
     import asyncpg.exceptions
     HAS_ASYNCPG = True
@@ -12,20 +14,27 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Engine configuration with SQLite support
+def get_database_url():
+    # Detect Desktop Mode for local SQLite usage
+    mode = os.getenv("DATABASE_MODE", "cloud") # 'cloud' or 'local'
+    
+    if mode == "local":
+        # Force SQLite for local desktop mode
+        return "sqlite+aiosqlite:///./statbricks_local.sqlite"
+    
+    return settings.database_url_asyncpg
+
+# Engine configuration with auto-switching
+DATABASE_URL = get_database_url()
 connect_args = {}
-if settings.database_url_asyncpg.startswith("sqlite"):
-    # SQLite doesn't support the same isolation levels/arguments as PostgreSQL
+if DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
-else:
-    # PostgreSQL specific settings could go here
-    pass
 
 engine = create_async_engine(
-    settings.database_url_asyncpg, 
+    DATABASE_URL, 
     echo=True, 
     future=True,
-    connect_args=connect_args if settings.database_url_asyncpg.startswith("sqlite") else {}
+    connect_args=connect_args
 )
 async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
