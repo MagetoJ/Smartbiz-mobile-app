@@ -33,9 +33,16 @@ export function Dashboard() {
   const isAdmin = user?.role === 'admin';
   const isStaff = user?.role === 'staff';
 
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [report, setReport] = useState<FinancialReport | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<DashboardStats | null>(() => {
+    const cached = localStorage.getItem('cached-dashboard-stats');
+    return cached ? JSON.parse(cached) : null;
+  });
+  const [report, setReport] = useState<FinancialReport | null>(() => {
+    const cached = localStorage.getItem('cached-dashboard-report');
+    return cached ? JSON.parse(cached) : null;
+  });
+  const [loading, setLoading] = useState(!stats);
+  const [isOffline, setIsOffline] = useState(false);
 
   // Branch filtering state
   const [selectedBranchId, setSelectedBranchId] = useState<number | null>(() => {
@@ -69,6 +76,7 @@ export function Dashboard() {
     const fetchData = async () => {
       if (!token) return;
       setLoading(true);
+      setIsOffline(false);
       try {
         const [statsData, reportData] = await Promise.all([
           api.getDashboardStats(token, selectedBranchId),
@@ -76,8 +84,12 @@ export function Dashboard() {
         ]);
         setStats(statsData);
         setReport(reportData);
+        // Cache data for offline use
+        localStorage.setItem('cached-dashboard-stats', JSON.stringify(statsData));
+        localStorage.setItem('cached-dashboard-report', JSON.stringify(reportData));
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
+        setIsOffline(true);
       } finally {
         setLoading(false);
       }
@@ -107,8 +119,14 @@ export function Dashboard() {
       {/* Header with Date Filters and Branch Selector */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900">
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 flex items-center gap-2">
             {isStaff ? 'My Performance' : 'Dashboard'}
+            {isOffline && (
+              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-medium flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                Offline Mode (Cached Data)
+              </span>
+            )}
           </h1>
           <p className="text-sm md:text-base text-gray-600 mt-1">
             Welcome back! Here's your business overview.

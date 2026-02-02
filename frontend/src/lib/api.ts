@@ -1,5 +1,17 @@
 // Get API URL from runtime config or environment variable
 const getApiBaseUrl = (): string => {
+  // Check for React Native
+  // @ts-ignore
+  if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
+    return import.meta.env.VITE_API_URL || 'https://api.statbricks.com';
+  }
+
+  // Check for Electron
+  // @ts-ignore
+  if (typeof window !== 'undefined' && (window.process?.type || window.__ELECTRON_ID__)) {
+    return 'http://localhost:8000';
+  }
+
   // Check runtime config (injected by docker-entrypoint.sh)
   if (typeof window !== 'undefined' && (window as any).__RUNTIME_CONFIG__?.API_URL) {
     return (window as any).__RUNTIME_CONFIG__.API_URL;
